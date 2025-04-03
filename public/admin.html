@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-map-marked-alt mr-2 text-blue-500"></i>
+                    Tracking Reports
+                </h1>
+                <button id="exportBtn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                    <i class="fas fa-file-export mr-2"></i>Export CSV
+                </button>
+            </div>
+            
+            <div class="overflow-x-auto">
+                <table class="min-w-full bg-white">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="py-3 px-4 text-left">Timestamp</th>
+                            <th class="py-3 px-4 text-left">Location</th>
+                            <th class="py-3 px-4 text-left">Accuracy</th>
+                            <th class="py-3 px-4 text-left">IP Address</th>
+                            <th class="py-3 px-4 text-left">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportTableBody" class="divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+            
+            <div class="mt-4 text-sm text-gray-500">
+                <i class="fas fa-info-circle mr-1"></i>
+                Showing last 50 tracking events
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check authentication
+        if (!sessionStorage.getItem('authenticated')) {
+            const username = prompt('Enter admin username:');
+            const password = prompt('Enter admin password:');
+            
+            if (username === 'admin' && password === 'tracking123') {
+                sessionStorage.setItem('authenticated', 'true');
+            } else {
+                alert('Invalid credentials');
+                window.location.href = '/';
+            }
+        }
+
+        // Fetch and display tracking data
+        function loadReports() {
+            fetch('/api/admin/data', {
+                headers: {
+                    'Authorization': 'Basic ' + btoa('admin:tracking123')
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('reportTableBody');
+                tbody.innerHTML = '';
+                
+                data.slice(0, 50).forEach(entry => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    
+                    row.innerHTML = `
+                        <td class="py-3 px-4">${new Date(entry.timestamp).toLocaleString()}</td>
+                        <td class="py-3 px-4">
+                            ${entry.lat && entry.lon ? 
+                                `<a href="https://maps.google.com/?q=${entry.lat},${entry.lon}" target="_blank" class="text-blue-500 hover:underline">
+                                    <i class="fas fa-map-marker-alt mr-1"></i>${entry.lat.toFixed(4)}, ${entry.lon.toFixed(4)}
+                                </a>` : 
+                                '<span class="text-gray-400">N/A</span>'}
+                        </td>
+                        <td class="py-3 px-4">${entry.accuracy ? `${Math.round(entry.accuracy)}m` : 'N/A'}</td>
+                        <td class="py-3 px-4">${entry.ip || 'N/A'}</td>
+                        <td class="py-3 px-4">
+                            ${entry.error ? 
+                                `<span class="text-red-500"><i class="fas fa-times-circle mr-1"></i>${entry.error}</span>` : 
+                                `<span class="text-green-500"><i class="fas fa-check-circle mr-1"></i>Success</span>`}
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            });
+        }
+
+        // Export to CSV
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            fetch('/api/admin/data', {
+                headers: {
+                    'Authorization': 'Basic ' + btoa('admin:tracking123')
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                let csv = 'Timestamp,Latitude,Longitude,Accuracy,IP Address,Status\n';
+                data.forEach(entry => {
+                    csv += `"${new Date(entry.timestamp).toLocaleString()}",${entry.lat || ''},${entry.lon || ''},${entry.accuracy || ''},"${entry.ip || ''}","${entry.error || 'Success'}"\n`;
+                });
+                
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'tracking_report.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            });
+        });
+
+        // Load initial data and refresh every 30 seconds
+        loadReports();
+        setInterval(loadReports, 30000);
+    </script>
+</body>
+</html>
